@@ -1,0 +1,215 @@
+#!/bin/bash
+
+# prepare variables
+#
+client_id=fff007a807304b9a8d983f5eaa095c98
+client_name=admin_client
+client_secret=secret
+
+user_id=3b23023b725c4262934d7339556b6d2d
+username=admin@example.com
+password=123
+
+authserver_url=http://localhost:8282
+authadmin_url=http://localhost:8080/v1
+
+echo "******************************************************************************************"
+echo "test reads for users"
+
+echo ""
+echo "1) verify list all users from authadmin server without access_token"
+echo ""
+cmd="curl -is -X GET '${authadmin_url}/users'"
+echo "$cmd"
+response=$(eval "$cmd")
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+response_code=$(echo "$response" | head -n 1 | awk '{ print $2 }')
+
+if [ "$response_code" != "401" ]; then
+    echo "not http unauthorize"
+    exit 1
+fi
+
+echo ""
+echo "2) use grant_type=password to get access_token & refresh_token from authserver"
+echo ""
+cmd="curl -sS -X POST -u '$client_id:$client_secret' '$authserver_url/oauth/v1/token' -d 'grant_type=password&username=$username&password=$password'"
+echo "$cmd"
+response=$(eval "$cmd")
+
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+access_token=$(echo "$response" | jq '.access_token' | sed -e 's/^"//' -e 's/"$//')
+if [ "$access_token" == "null" ]; then
+    echo "access_token is null"
+    exit 1;
+fi
+
+echo "access_token=$access_token"
+
+refresh_token=$(echo "$response" | jq '.refresh_token' | sed -e 's/^"//' -e 's/"$//')
+if [ "$refresh_token" == "null" ]; then
+    echo "refresh_token is null"
+    exit 1;
+fi
+
+echo "refresh_token=$refresh_token"
+
+echo ""
+echo "3) list all users from authadmin server"
+echo ""
+cmd="curl -sS -H 'Authorization: Bearer $access_token' -X GET '${authadmin_url}/users'"
+echo "$cmd"
+response=$(eval "$cmd")
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+count=$(echo "$response" | grep $username | wc -l)
+if [ "$count" -ne 1 ]; then
+  echo "result is not OK"
+  exit 1
+fi
+
+user_urls=$(echo "$response" | grep $authadmin_url/users/ | awk '{print $3}' | uniq |  tr -d '"')
+if [ -z "$user_urls" ]; then
+  echo "result is not OK"
+  exit 1
+fi
+
+user_ids=$(echo "$user_urls" | grep -v search | awk -F '/' '{ print $6 }');
+if [ -z "$user_ids" ]; then
+  echo "result is not OK"
+  exit 1
+fi
+
+usernames=$(echo "$response" | grep username | awk '{print $3}' | tr -d '"' | tr -d ',');
+
+if [ -z "$usernames" ]; then
+  echo "result is not OK"
+  exit 1
+fi
+
+echo ""
+echo "4) use per user url to get each user from authadmin server"
+echo ""
+
+while read -r user_url; do
+  
+  if [[ "$user_url" == *"-password" ]]; then
+    continue
+  fi
+
+  if [[ "$user_url" == *"-password-change-code" ]]; then
+    continue
+  fi
+  
+  cmd="curl -sS -H 'Authorization: Bearer $access_token' -X GET '$user_url'"
+  echo "$cmd"
+  response=$(eval "$cmd")
+  RESULT=$?
+
+  echo "$response"
+
+  if [ $RESULT -eq 0 ]; then
+    echo "success"
+  else
+    echo "failed to run "$cmd""
+    exit 1
+  fi
+
+  if [[ "$user_url" == */search ]]; then
+    echo "has search url"
+  else
+    count=$(echo "$response" | grep username | wc -l)
+    if [ "$count" -ne 1 ]; then
+      echo "result is not OK"
+      exit 1
+    fi
+  fi
+
+done <<< "$user_urls"
+
+echo ""
+echo "5) use search/findByUserId to get each user from authadmin server"
+echo ""
+
+while read -r user_id; do
+  cmd="curl -sS -H 'Authorization: Bearer $access_token' -X GET '$authadmin_url/users/search/ids?id=$user_id'"
+  echo "$cmd"
+  response=$(eval "$cmd")
+  RESULT=$?
+
+  echo "$response"
+
+  if [ $RESULT -eq 0 ]; then
+    echo "success"
+  else
+    echo "failed to run "$cmd""
+    exit 1
+  fi
+
+  count=$(echo "$response" | grep username | wc -l)
+  if [ "$count" -ne 1 ]; then
+    echo "result is not OK"
+    exit 1
+  fi
+
+done <<< "$user_ids"
+
+echo ""
+echo "6) use search/findByUsername to get each user from authadmin server"
+echo ""
+
+while read -r username; do
+  cmd="curl -sS -H 'Authorization: Bearer $access_token' -X GET '$authadmin_url/users/search/usernames?name=$username'"
+  echo "$cmd"
+  response=$(eval "$cmd")
+  RESULT=$?
+
+  echo "$response"
+
+  if [ $RESULT -eq 0 ]; then
+    echo "success"
+  else
+    echo "failed to run "$cmd""
+    exit 1
+  fi
+
+  count=$(echo "$response" | grep username | wc -l)
+  if [ "$count" -ne 1 ]; then
+    echo "result is not OK"
+    exit 1
+  fi
+
+done <<< "$usernames"
+
+echo "------------------------------------------------------------------------------------------"
+echo "test completed successfully"
+

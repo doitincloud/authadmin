@@ -1,0 +1,264 @@
+#!/bin/bash
+
+# prepare variables
+#
+client_id=fff007a807304b9a8d983f5eaa095c98
+client_name=admin_client
+client_secret=secret
+
+user_id=3b23023b725c4262934d7339556b6d2d
+username=admin@example.com
+password=123
+
+authserver_url=http://localhost:8282
+authadmin_url=http://localhost:8080/v1
+
+echo "******************************************************************************************"
+echo "test reads for terms"
+
+echo ""
+echo "1) verify list all terms from authadmin server without access_token"
+echo ""
+cmd="curl -is -X GET '${authadmin_url}/terms'"
+echo "$cmd"
+response=$(eval "$cmd")
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+response_code=$(echo "$response" | head -n 1 | awk '{ print $2 }')
+
+if [ "$response_code" != "401" ]; then
+    echo "not http unauthorize"
+    exit 1
+fi
+
+
+echo ""
+echo "2) use grant_type=password to get access_token & refresh_token from authserver"
+echo ""
+cmd="curl -sS -X POST -u '$client_id:$client_secret' '$authserver_url/oauth/v1/token' -d 'grant_type=password&username=$username&password=$password'"
+echo "$cmd"
+response=$(eval "$cmd")
+
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+access_token=$(echo "$response" | jq '.access_token' | sed -e 's/^"//' -e 's/"$//')
+if [ "$access_token" == "null" ]; then
+    echo "access_token is null"
+    exit 1;
+fi
+
+echo "access_token=$access_token"
+
+refresh_token=$(echo "$response" | jq '.refresh_token' | sed -e 's/^"//' -e 's/"$//')
+if [ "$refresh_token" == "null" ]; then
+    echo "refresh_token is null"
+    exit 1;
+fi
+
+echo "refresh_token=$refresh_token"
+
+echo ""
+echo "3) list all termss from authadmin server"
+echo ""
+cmd="curl -sS -H 'Authorization: Bearer $access_token' -X GET '${authadmin_url}/terms'"
+echo "$cmd"
+response=$(eval "$cmd")
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+count=$(echo "$response" | grep ROLE_USER | wc -l)
+if [ "$count" -eq 0 ]; then
+  echo "result is not OK(1)"
+  exit 1
+fi
+
+term_urls=$(echo "$response" | grep $authadmin_url/terms/ | awk '{print $3}' | uniq |  tr -d '"')
+if [ -z "$term_urls" ]; then
+  echo "result is not OK(2)"
+  exit 1
+fi
+
+term_ids=$(echo "$term_urls" | grep -v search | awk -F '/' '{ print $6 }');
+if [ -z "$term_ids" ]; then
+  echo "result is not OK(3)"
+  exit 1
+fi
+
+echo ""
+echo "4) get each term from authadmin server"
+echo ""
+
+while read -r term_url; do
+  cmd="curl -sS -H 'Authorization: Bearer $access_token' -X GET '$term_url'"
+  echo "$cmd"
+  response=$(eval "$cmd")
+  RESULT=$?
+
+  echo "$response"
+
+  if [ $RESULT -eq 0 ]; then
+    echo "success"
+  else
+    echo "failed to run "$cmd""
+    exit 1
+  fi
+
+  if [[ "$term_url" == */search ]]; then
+    echo "has search url"
+  else
+    count=$(echo "$response" | grep "type" | wc -l)
+    if [ "$count" -ne 1 ]; then
+        echo "result is not OK"
+        exit 1
+    fi
+  fi
+done <<< "$term_urls"
+
+echo ""
+echo "5) use search by name-types to get term from authadmin server"
+echo ""
+
+cmd="curl -sS -H 'Authorization: Bearer $access_token' -X GET '$authadmin_url/terms/search/name-types?name=oauth2-resource&type=resource_id'"
+echo "$cmd"
+response=$(eval "$cmd")
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+count=$(echo "$response" | grep type | wc -l)
+if [ "$count" -ne 1 ]; then
+  echo "result is not OK"
+  exit 1
+fi
+
+echo ""
+echo "6) use search by names to get term from authadmin server"
+echo ""
+
+cmd="curl -sS -H 'Authorization: Bearer $access_token' -X GET '$authadmin_url/terms/search/names?name=oauth2-resource'"
+echo "$cmd"
+response=$(eval "$cmd")
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+count=$(echo "$response" | grep type | wc -l)
+if [ "$count" -ne 1 ]; then
+  echo "result is not OK"
+  exit 1
+fi
+
+echo ""
+echo "7) use search by types to get term from authadmin server"
+echo ""
+
+cmd="curl -sS -H 'Authorization: Bearer $access_token' -X GET '$authadmin_url/terms/search/types?type=user_role'"
+echo "$cmd"
+response=$(eval "$cmd")
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+count=$(echo "$response" | grep type | wc -l)
+if [ "$count" eq 0 ]; then
+  echo "result is not OK"
+  exit 1
+fi
+
+echo ""
+echo "8) use search by type list to get term from authadmin server"
+echo ""
+
+cmd="curl -sS -H 'Authorization: Bearer $access_token' -X GET '$authadmin_url/terms/search/types?type=user_role'"
+echo "$cmd"
+response=$(eval "$cmd")
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+count=$(echo "$response" | grep type | wc -l)
+if [ "$count" -eq 0 ]; then
+  echo "result is not OK"
+  exit 1
+fi
+
+echo ""
+echo "9) use search by type list 2 to get term from authadmin server"
+echo ""
+
+cmd="curl -sS -H 'Authorization: Bearer $access_token' -X GET '$authadmin_url/terms/search/types2?type=user_role'"
+echo "$cmd"
+response=$(eval "$cmd")
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+count=$(echo "$response" | grep type | wc -l)
+if [ "$count" -eq 0 ]; then
+  echo "result is not OK"
+  exit 1
+fi
+
+echo "------------------------------------------------------------------------------------------"
+echo "test completed successfully"

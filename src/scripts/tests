@@ -1,0 +1,52 @@
+#!/bin/bash
+
+echo ""
+./password_flow
+
+if [ $? -ne 0 ]; then
+  exit 1
+fi
+
+echo ""
+./read-clients
+
+if [ $? -ne 0 ]; then
+  exit 1
+fi
+
+echo ""
+./read-users
+
+if [ $? -ne 0 ]; then
+  exit 1
+fi
+
+echo ""
+./read-terms
+
+if [ $? -ne 0 ]; then
+  exit 1
+fi
+
+echo ""
+./full-clients
+
+if [ $? -ne 0 ]; then
+  exit 1
+fi
+
+echo ""
+./full-users
+
+if [ $? -ne 0 ]; then
+  exit 1
+fi
+
+echo ""
+./full-terms
+
+if [ $? -ne 0 ]; then
+  exit 1
+fi
+
+

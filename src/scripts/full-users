@@ -1,0 +1,490 @@
+#!/bin/bash
+
+# prepare variables
+#
+client_id=fff007a807304b9a8d983f5eaa095c98
+client_name=admin_client
+client_secret=secret
+
+user_id=3b23023b725c4262934d7339556b6d2d
+username=admin@example.com
+password=123
+
+authadmin_url=http://localhost:8080/v1
+authserver_url=http://localhost:8080
+
+echo "******************************************************************************************"
+echo "full user tests"
+
+echo ""
+echo "1) verify without access_token"
+echo ""
+cmd="curl -is -X GET '${authadmin_url}/users'"
+echo "$cmd"
+response=$(eval "$cmd")
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+response_code=$(echo "$response" | head -n 1 | awk '{ print $2 }')
+
+if [ "$response_code" != "401" ]; then
+    echo "not http unauthorize"
+    exit 1
+fi
+
+echo ""
+echo "2) use grant_type=password to get access_token & refresh_token from authserver"
+echo ""
+cmd="curl -sS -X POST -u '$client_id:$client_secret' '$authserver_url/oauth/v1/token' -d 'grant_type=password&username=$username&password=$password'"
+echo "$cmd"
+response=$(eval "$cmd")
+
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+access_token=$(echo "$response" | jq '.access_token' | sed -e 's/^"//' -e 's/"$//')
+if [ "$access_token" == "null" ]; then
+    echo "access_token is null"
+    exit 1;
+fi
+
+echo "access_token=$access_token"
+
+refresh_token=$(echo "$response" | jq '.refresh_token' | sed -e 's/^"//' -e 's/"$//')
+if [ "$refresh_token" == "null" ]; then
+    echo "refresh_token is null"
+    exit 1;
+fi
+
+echo "refresh_token=$refresh_token"
+
+echo ""
+echo "3) check if test-user@example.com and test_user_test@example.com exists, if yes, delete it"
+echo ""
+cmd="curl -is -H 'Authorization: Bearer $access_token' -X GET '$authadmin_url/users/search/usernames?name=test-user@example.com'"
+echo "$cmd"
+response=$(eval "$cmd")
+
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+response_code=$(echo "$response" | head -n 1 | awk '{ print $2 }')
+
+if [ "$response_code" == "200" ]; then
+
+  user_url=$(echo "$response" | grep $authadmin_url/users/ | head -n 1 | awk '{print $3}' | uniq |  tr -d '"')
+  if [ -z "$user_url" ]; then
+    echo "result is not OK(2)"
+    exit 1
+  fi
+
+  echo "user_url=$user_url"
+
+  user_id=$(echo "$user_url" | grep -v search | awk -F '/' '{ print $6 }');
+  if [ -z "$user_id" ]; then
+    echo "result is not OK(3)"
+    exit 1
+  fi
+
+  echo "user_id=$user_id"
+
+  username=$(echo "$response" | grep username | awk '{print $3}' | tr -d '"' | tr -d ',');
+
+  if [ -z "$username" ]; then
+    echo "result is not OK(4)"
+    exit 1
+  fi
+
+  echo "username=$username"
+  
+  echo ""
+  cmd="curl -is -H 'Authorization: Bearer $access_token' -X DELETE '$authadmin_url/users/$user_id'"
+  echo "$cmd"
+  response=$(eval "$cmd")
+
+  RESULT=$?
+
+  echo "$response"
+
+  if [ $RESULT -eq 0 ]; then
+    echo "success"
+  else
+    echo "failed to run "$cmd""
+    exit 1
+  fi
+
+  response_code=$(echo "$response" | head -n 1 | awk '{ print $2 }')
+
+fi
+
+echo ""
+cmd="curl -is -H 'Authorization: Bearer $access_token' -X GET '$authadmin_url/users/search/usernames?name=test_user_test@example.com'"
+echo "$cmd"
+response=$(eval "$cmd")
+
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+response_code=$(echo "$response" | head -n 1 | awk '{ print $2 }')
+
+if [ "$response_code" == "200" ]; then
+
+  user_url=$(echo "$response" | grep $authadmin_url/users/ | awk '{print $3}' | uniq |  tr -d '"')
+  if [ -z "$user_url" ]; then
+    echo "result is not OK(2)"
+    exit 1
+  fi
+
+  echo "user_url=$user_url"
+
+  user_id=$(echo "$user_url" | grep -v search | awk -F '/' '{ print $6 }');
+  if [ -z "$user_id" ]; then
+    echo "result is not OK(3)"
+    exit 1
+  fi
+
+  echo "user_id=$user_id"
+
+  username=$(echo "$response" | grep username | awk '{print $3}' | tr -d '"' | tr -d ',');
+
+  if [ -z "$username" ]; then
+    echo "result is not OK(4)"
+    exit 1
+  fi
+
+  echo "username=$username"
+  
+  echo ""
+  cmd="curl -is -H 'Authorization: Bearer $access_token' -X DELETE '$authadmin_url/users/$user_id'"
+  echo "$cmd"
+  response=$(eval "$cmd")
+
+  RESULT=$?
+
+  echo "$response"
+
+  if [ $RESULT -eq 0 ]; then
+    echo "success"
+  else
+    echo "failed to run "$cmd""
+    exit 1
+  fi
+
+  response_code=$(echo "$response" | head -n 1 | awk '{ print $2 }')
+
+  if [ "$response_code" != "204" ]; then
+    echo "response code is not 200"
+    exit 1
+  fi
+fi
+
+echo ""
+echo "4) create"
+echo ""
+cmd="curl -is -H 'Content-Type: application/json' -H 'Authorization: Bearer $access_token' -X POST '$authadmin_url/users' -d \
+'{
+  \"username\" : \"test-user@example.com\",
+  \"plaint_text_password\" : \"Test-user-123\",
+  \"first_name\" : \"DoItInCloud\",
+  \"last_name\" : \"test-user\",
+  \"phone_number\" : \"+16265678900\"
+}'"
+echo "$cmd"
+response=$(eval "$cmd")
+
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+response_code=$(echo "$response" | head -n 1 | awk '{ print $2 }')
+
+if [ "$response_code" != "201" ]; then
+  echo "failed, response code should be 201"
+  exit 1
+fi
+
+user_url=$(echo "$response" | grep $authadmin_url/users/ | head -n 1 | awk '{print $2}' |  tr -d '"' |  tr -d '\r' |  tr -d '\n')
+if [ -z "$user_url"]; then
+  echo "failed to get url_url"
+  exit 1
+fi
+
+echo "user_url=$user_url"
+
+echo ""
+echo "5) patch"
+echo ""
+cmd="curl -is -H 'Content-Type: application/json' -H 'Authorization: Bearer $access_token' -X PATCH '$user_url' -d \
+'{
+  \"username\" : \"test_user_test@example.com\",
+  \"last_name\" : \"tester_new\"
+}'"
+echo "$cmd"
+response=$(eval "$cmd")
+
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+response_code=$(echo "$response" | head -n 1 | awk '{ print $2 }')
+
+if [ "$response_code" != "200" ]; then
+  echo "failed, response code should be 200"
+  exit 1
+fi
+
+echo ""
+echo "6) put"
+echo ""
+cmd="curl -is -H 'Content-Type: application/json' -H 'Authorization: Bearer $access_token' -X PUT '$user_url' -d \
+'{
+  \"username\" : \"test-user@example.com\",
+  \"enabled\" : true,
+  \"plaint_text_password\" : \"Test-user-123\",
+  \"first_name\" : \"DoItInCloud\",
+  \"last_name\" : \"test-user\",
+  \"phone_number\" : \"+15169781000\",
+  \"account_non_locked\" : true,
+  \"credentials_non_expired\" : true,
+  \"account_non_expired\" : true,
+  \"authorities\" : [ \"ROLE_USER\" ]
+}'"
+echo "$cmd"
+response=$(eval "$cmd")
+
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+response_code=$(echo "$response" | head -n 1 | awk '{ print $2 }')
+
+if [ "$response_code" != "200" ]; then
+  echo "failed, response code should be 200"
+  exit 1
+fi
+
+echo ""
+echo "7) reset-password"
+echo ""
+cmd="curl -is -H 'Content-Type: application/json' -H 'Authorization: Bearer $access_token' -X GET '$user_url/reset-password'"
+echo "$cmd"
+response=$(eval "$cmd")
+
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+response_code=$(echo "$response" | head -n 1 | awk '{ print $2 }')
+
+response_code=$(echo "$response" | head -n 1 | awk '{ print $2 }')
+
+if [ "$response_code" != "200" ]; then
+  echo "failed, response code should be 200"
+  exit 1
+fi
+
+password=$(echo "$response" | grep password | awk '{ print $3 }' | tr -d '"' | tr -d ',')
+if [ -z "$password" ]; then
+  echo "result is not OK"
+  exit 1
+fi
+
+echo ""
+echo "8) change-password"
+echo ""
+cmd="curl -is -H 'Content-Type: application/json' -H 'Authorization: Bearer $access_token' -X POST '$user_url/change-password' -d '{\"password\":\"$password\",\"new-password\":\"1234567Abc+\"}'"
+echo "$cmd"
+response=$(eval "$cmd")
+
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+response_code=$(echo "$response" | head -n 1 | awk '{ print $2 }')
+
+if [ "$response_code" != "200" ]; then
+  echo "failed, response code should be 200"
+  exit 1
+fi
+
+echo ""
+cmd="curl -is -H 'Content-Type: application/json' -H 'Authorization: Bearer $access_token' -X POST '$user_url/change-password' -d '{\"password\":\"1234567Abc+\",\"new-password\":\"123Abc+\"}'"
+echo "$cmd"
+response=$(eval "$cmd")
+
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+response_code=$(echo "$response" | head -n 1 | awk '{ print $2 }')
+
+if [ "$response_code" != "200" ]; then
+  echo "failed, response code should be 200"
+  exit 1
+fi
+
+password=$(echo "$response" | grep password | awk '{ print $3 }' | tr -d '"' | tr -d ',')
+if [ ! -z "$password" ]; then
+  echo "result is not OK"
+  exit 1
+fi
+
+echo ""
+echo "9) set-password"
+echo ""
+cmd="curl -is -H 'Content-Type: application/json' -H 'Authorization: Bearer $access_token' -X GET '$user_url/send-password-change-code'"
+echo "$cmd"
+response=$(eval "$cmd")
+
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+response_code=$(echo "$response" | head -n 1 | awk '{ print $2 }')
+
+if [ "$response_code" != "200" ]; then
+  echo "failed, response code should be 200"
+  exit 1
+fi
+
+if [ ! -f /tmp/text-code.txt ]; then
+  echo "failed, /tmp/text-code.txt not exists"
+  exit 1
+fi
+
+code=$(cat /tmp/text-code.txt | grep 'code: ' | awk '{print $2}')
+
+if [ -z "$code" ]; then
+  echo "failed, code is empty"
+  exit 1
+fi
+
+echo ""
+cmd="curl -is -H 'Content-Type: application/json' -H 'Authorization: Bearer $access_token' -X POST '$user_url/set-password' -d '{\"code\":\"$code\",\"password\":\"Ashgasgh121+\"}'"
+echo "$cmd"
+response=$(eval "$cmd")
+
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+response_code=$(echo "$response" | head -n 1 | awk '{ print $2 }')
+
+if [ "$response_code" != "200" ]; then
+  echo "failed, response code should be 200"
+  exit 1
+fi
+
+echo ""
+cmd="curl -is -H 'Content-Type: application/json' -H 'Authorization: Bearer $access_token' -X POST '$user_url/change-password' -d '{\"password\":\"Ashgasgh121+\",\"new-password\":\"Abc+123\"}'"
+echo "$cmd"
+response=$(eval "$cmd")
+
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+response_code=$(echo "$response" | head -n 1 | awk '{ print $2 }')
+
+if [ "$response_code" != "200" ]; then
+  echo "failed, response code should be 200"
+  exit 1
+fi
+
+echo "------------------------------------------------------------------------------------------"
+echo "test completed successfully"

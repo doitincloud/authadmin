@@ -1,0 +1,365 @@
+#!/bin/bash
+
+# prepare variables
+#
+client_id=fff007a807304b9a8d983f5eaa095c98
+client_name=admin_client
+client_secret=secret
+
+user_id=3b23023b725c4262934d7339556b6d2d
+username=admin@example.com
+password=123
+
+authadmin_url=http://localhost:8080/v1
+authserver_url=http://localhost:8080
+
+echo "******************************************************************************************"
+echo "full term tests"
+
+echo ""
+echo "1) verify without access_token"
+echo ""
+cmd="curl -is -X GET '${authadmin_url}/terms'"
+echo "$cmd"
+response=$(eval "$cmd")
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+response_code=$(echo "$response" | head -n 1 | awk '{ print $2 }')
+
+if [ "$response_code" != "401" ]; then
+    echo "not http unauthorize"
+    exit 1
+fi
+
+echo ""
+echo "2) use grant_type=password to get access_token & refresh_token from authserver"
+echo ""
+cmd="curl -sS -X POST -u '$client_id:$client_secret' '$authserver_url/oauth/v1/token' -d 'grant_type=password&username=$username&password=$password'"
+echo "$cmd"
+response=$(eval "$cmd")
+
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+access_token=$(echo "$response" | jq '.access_token' | sed -e 's/^"//' -e 's/"$//')
+if [ "$access_token" == "null" ]; then
+    echo "access_token is null"
+    exit 1;
+fi
+
+echo "access_token=$access_token"
+
+refresh_token=$(echo "$response" | jq '.refresh_token' | sed -e 's/^"//' -e 's/"$//')
+if [ "$refresh_token" == "null" ]; then
+    echo "refresh_token is null"
+    exit 1;
+fi
+
+echo "refresh_token=$refresh_token"
+
+echo ""
+echo "3) check if test-type and test_type_test, test_type_test2 exists, if yes, delete it"
+echo ""
+cmd="curl -is -H 'Authorization: Bearer $access_token' -X GET '$authadmin_url/terms/search/name-types?name=test_type_test&type=test-type'"
+echo "$cmd"
+response=$(eval "$cmd")
+
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+response_code=$(echo "$response" | head -n 1 | awk '{ print $2 }')
+
+if [ "$response_code" == "200" ]; then
+
+  term_url=$(echo "$response" | grep $authadmin_url/terms/ | awk '{print $3}' | uniq |  tr -d '"')
+  if [ -z "$term_url" ]; then
+    echo "result is not OK(2)"
+    exit 1
+  fi
+
+  echo "term_url=$term_url"
+
+  term_id=$(echo "$term_url" | grep -v search | awk -F '/' '{ print $6 }');
+  if [ -z "$term_id" ]; then
+    echo "result is not OK(3)"
+    exit 1
+  fi
+
+  echo "term_id=$term_id"
+
+  echo ""
+  cmd="curl -is -H 'Authorization: Bearer $access_token' -X DELETE '$authadmin_url/terms/$term_id'"
+  echo "$cmd"
+  response=$(eval "$cmd")
+
+  RESULT=$?
+
+  echo "$response"
+
+  if [ $RESULT -eq 0 ]; then
+    echo "success"
+  else
+    echo "failed to run "$cmd""
+    exit 1
+  fi
+
+  response_code=$(echo "$response" | head -n 1 | awk '{ print $2 }')
+
+  if [ "$response_code" -gt "299" ]; then
+    echo "response code is not less than 299"
+    exit 1
+  fi
+
+fi
+
+echo ""
+cmd="curl -is -H 'Authorization: Bearer $access_token' -X GET '$authadmin_url/terms/search/name-types?name=test_type_test2&type=test-type'"
+echo "$cmd"
+response=$(eval "$cmd")
+
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+response_code=$(echo "$response" | head -n 1 | awk '{ print $2 }')
+
+if [ "$response_code" == "200" ]; then
+
+  term_url=$(echo "$response" | grep $authadmin_url/terms/ | awk '{print $3}' | uniq |  tr -d '"')
+  if [ -z "$term_url" ]; then
+    echo "result is not OK(2)"
+    exit 1
+  fi
+
+  echo "term_url=$term_url"
+
+  term_id=$(echo "$term_url" | grep -v search | awk -F '/' '{ print $6 }');
+  if [ -z "$term_id" ]; then
+    echo "result is not OK(3)"
+    exit 1
+  fi
+
+  echo "term_id=$term_id"
+
+  echo ""
+  cmd="curl -is -H 'Authorization: Bearer $access_token' -X DELETE '$authadmin_url/terms/$term_id'"
+  echo "$cmd"
+  response=$(eval "$cmd")
+
+  RESULT=$?
+
+  echo "$response"
+
+  if [ $RESULT -eq 0 ]; then
+    echo "success"
+  else
+    echo "failed to run "$cmd""
+    exit 1
+  fi
+
+  response_code=$(echo "$response" | head -n 1 | awk '{ print $2 }')
+
+  if [ "$response_code" -gt "299" ]; then
+    echo "response code is not less than 299"
+    exit 1
+  fi
+
+fi
+
+echo ""
+echo "4) create"
+echo ""
+cmd="curl -is -H 'Content-Type: application/json' -H 'Authorization: Bearer $access_token' -X POST '$authadmin_url/terms' -d \
+'{
+  \"name\" : \"test_type_test\",
+  \"type\" : \"test-type\",
+  \"role_options\" : [\"ALL\"]
+}'"
+echo "$cmd"
+response=$(eval "$cmd")
+
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+response_code=$(echo "$response" | head -n 1 | awk '{ print $2 }')
+
+if [ "$response_code" != "201" ]; then
+  echo "failed, response code should be 201"
+  exit 1
+fi
+
+term_url=$(echo "$response" | grep $authadmin_url/terms/ | awk '{print $3}' | uniq |  tr -d '"' | tr -d "\n")
+if [ -z "$term_url" ]; then
+  echo "result is not OK(2)"
+  exit 1
+fi
+
+echo "term_url=$term_url"
+
+term_id=$(echo "$term_url" | grep -v search | awk -F '/' '{ print $6 }');
+if [ -z "$term_id" ]; then
+  echo "result is not OK(3)"
+  exit 1
+fi
+
+echo "term_id=$term_id"
+
+echo ""
+echo "5) patch"
+echo ""
+cmd="curl -is -H 'Content-Type: application/json' -H 'Authorization: Bearer $access_token' -X PATCH '$term_url' -d \
+'{
+  \"role_options\" : [\"ROLE_USER\"]
+}'"
+echo "$cmd"
+response=$(eval "$cmd")
+
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+response_code=$(echo "$response" | head -n 1 | awk '{ print $2 }')
+
+if [ "$response_code" != "200" ]; then
+  echo "failed, response code should be 200"
+  exit 1
+fi
+
+term_url2=$(echo "$response" | grep $authadmin_url/terms/ | awk '{print $3}' | uniq |  tr -d '"' | tr -d "\n")
+if [ -z "$term_url2" ]; then
+  echo "result is not OK(2)"
+  exit 1
+fi
+
+echo "term_url2=$term_url"
+
+term_id2=$(echo "$term_url2" | grep -v search | awk -F '/' '{ print $6 }');
+if [ "$term_id2" != "$term_id" ]; then
+  echo "result is not OK(3)"
+  exit 1
+fi
+
+echo "term_id2=$term_id2"
+
+echo ""
+echo "6) put"
+echo ""
+cmd="curl -is -H 'Content-Type: application/json' -H 'Authorization: Bearer $access_token' -X PUT '$term_url' -d \
+'{
+  \"name\" : \"test_type_test2\",
+  \"type\" : \"test-type\",
+  \"role_options\" : [\"ROLE_USER\", \"ROLE_ADMIN\"],
+  \"visible_by_roles\" : [\"ROLE_USER\", \"ROLE_ADMIN\"]
+}'"
+echo "$cmd"
+response=$(eval "$cmd")
+
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+response_code=$(echo "$response" | head -n 1 | awk '{ print $2 }')
+
+if [ "$response_code" != "200" ]; then
+  echo "failed, response code should be 200"
+  exit 1
+fi
+
+term_url2=$(echo "$response" | grep $authadmin_url/terms/ | awk '{print $3}' | uniq |  tr -d '"' | tr -d "\n")
+if [ -z "$term_url2" ]; then
+  echo "result is not OK(2)"
+  exit 1
+fi
+
+echo "term_url2=$term_url"
+
+term_id2=$(echo "$term_url2" | grep -v search | awk -F '/' '{ print $6 }');
+if [ "$term_id2" != "$term_id" ]; then
+  echo "result is not OK(3)"
+  exit 1
+fi
+
+echo "term_id2=$term_id2"
+
+echo ""
+echo "7) delete"
+echo ""
+cmd="curl -is -H 'Content-Type: application/json' -H 'Authorization: Bearer $access_token' -X DELETE '$term_url'"
+echo "$cmd"
+response=$(eval "$cmd")
+
+RESULT=$?
+
+echo "$response"
+
+if [ $RESULT -eq 0 ]; then
+  echo "success"
+else
+  echo "failed to run "$cmd""
+  exit 1
+fi
+
+response_code=$(echo "$response" | head -n 1 | awk '{ print $2 }')
+
+if [ "$response_code" -gt "299" ]; then
+  echo "failed, response code should be less tan 299"
+  exit 1
+fi
+
+echo "------------------------------------------------------------------------------------------"
+echo "test completed successfully"
+
