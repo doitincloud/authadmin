@@ -191,7 +191,7 @@ public class ValidateUtils {
     public static Map<String, Term> getTermTypeMap(String type) {
         String cacheKey = "term-type::" + type;
         Map<String, Term> termMap = new HashMap<>();
-        Map<String, Object> map = AppCtx.getCacheOps().get(cacheKey);
+        Map<String, Object> map = AppCtx.getCacheOps().getWithoutTimeout(cacheKey);
         if (map == null) {
             return termMap;
         }
@@ -203,7 +203,7 @@ public class ValidateUtils {
 
     public static Map<String, Object> getUserRolesOptions(Set<String> roles) {
         String cacheKey = "role-options::" + AuthCtx.getAccessToken();
-        Map<String, Object> map = AppCtx.getCacheOps().get(cacheKey);
+        Map<String, Object> map = AppCtx.getCacheOps().getWithoutTimeout(cacheKey);
         if (map == null) {
             Map<String, Term> userRoles = getTermTypeMap("user_role");
             map = new HashMap<>();

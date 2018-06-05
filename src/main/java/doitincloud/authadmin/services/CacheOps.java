@@ -51,43 +51,24 @@ public class CacheOps extends LocalCache {
 
     public void setupTermTypeMap() {
 
-        String dummyKey = "term-type-refreshable";
+        String[] types = termJpaRepo.findDistinctByType();
 
-        put(dummyKey, recycleSecs / 4, new Refreshable() {
-                    @Override
-                    public Map<String, Object> call() throws Exception {
+        for (int i = 0; i < types.length; i++) {
 
-                        Iterable <Term> allTerms = termJpaRepo.findAll();
-                        Map<String, Object> termTypeMap = new HashMap<>();
-                        Iterator<Term> iterator = allTerms.iterator();
-                        while (iterator.hasNext()) {
-                            Term term = iterator.next();
-                            String type = term.getType();
-                            Map<String, Object> map = (Map<String, Object>) termTypeMap.get(type);
-                            if (map == null) {
-                                map = new HashMap<>();
-                                termTypeMap.put(type, map);
-                            }
-                            map.put(term.getName(), Utils.toMap(term));
-                        }
+            String type = types[i];
+            String cacheKey = "term-type::" + type;
 
-                        Map<String, Object> dummyMap = get(dummyKey);
-                        if (dummyMap == null) {
-                            dummyMap = new HashMap<>();
-                        }
-
-                        for (Map.Entry<String, Object> entry: termTypeMap.entrySet()) {
-                            String key = entry.getKey();
-                            Map<String, Object> map = (Map<String, Object>) entry.getValue();
-                            dummyMap.put(key, map.size());
-                            String cacheKey = "term-type::" + key;
-                            Utils.getExcutorService().submit(() -> {
-                                put(cacheKey, map, recycleSecs * 2);
-                            });
-                        }
-                        return dummyMap;
+            put(cacheKey, recycleSecs * 11 / 10, new Refreshable() {
+                @Override
+                public Map<String, Object> call() throws Exception {
+                    List<Term> terms = termJpaRepo.findByType(type);
+                    Map<String, Object> map = new HashMap<>();
+                    for (Term term: terms) {
+                        map.put(term.getName(), Utils.toMap(term));
                     }
+                    return map;
                 }
-        );
+            });
+        }
     }
 }
