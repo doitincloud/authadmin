@@ -9,7 +9,7 @@
   <packaging>jar</packaging>
 
   <name>authadmin</name>
-  <description>Admin UI/API server for Auth Server</description>
+  <description>Admin API server for Auth Server</description>
 
   <parent>
     <groupId>org.springframework.boot</groupId>

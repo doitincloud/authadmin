@@ -15,7 +15,6 @@ import static org.springframework.hateoas.mvc.ControllerLinkBuilder.methodOn;
 
 import java.util.Map;
 
-
 @RestController
 public class ClientExController {
 
