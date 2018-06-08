@@ -10,8 +10,8 @@ user_id=3b23023b725c4262934d7339556b6d2d
 username=admin@example.com
 password=123
 
-authadmin_url=http://localhost:8080/v1
 authserver_url=http://localhost:8080
+authadmin_url=http://localhost:8080/v1
 
 echo "******************************************************************************************"
 echo "full user tests"
