@@ -1,7 +1,7 @@
 About authadmin
 ---------------
 
-authadmin provides administrative APIs services for authserver. It uses spring boot starters: rest, data and hateoes.
+authadmin provides administrative API services for authserver. It uses spring boot starters: rest, data and hateoes.
 The authserver provides authentication and authorization services. 
 It implemented cached token service, token proxy service and token revoke service on oauth2 client side.
 
