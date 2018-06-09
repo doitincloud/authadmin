@@ -1,10 +1,6 @@
 package doitincloud.authadmin.repositories;
 
-import doitincloud.authadmin.models.Term;
 import org.springframework.data.rest.core.annotation.RestResource;
-
-import java.util.List;
-import java.util.Set;
 
 public interface ClientExRepo {
 

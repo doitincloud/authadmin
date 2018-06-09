@@ -1,7 +1,6 @@
 package doitincloud.authadmin.repositories;
 
 import doitincloud.authadmin.models.Client;
-import doitincloud.authadmin.models.Term;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
