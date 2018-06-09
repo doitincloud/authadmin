@@ -13,8 +13,7 @@ It requires Java version 1.8+, maven 3.5+, redis 4.0+, mysql 5+ and authserver.
 
 ### Configuration
 
-edit src/main/resources/application.properties
-change following section according to your settings:
+edit src/main/resources/application.properties, change following section according to your settings:
 
     # for oauth2 server
     #
@@ -26,7 +25,7 @@ change following section according to your settings:
     #
     spring.redis.url=redis://localhost:6379
 
-    # for system database
+    # for database
     #
     spring.datasource.url=jdbc:mysql://localhost/doitincloud_db?useSSL=false&serverTimezone=UTC&createDatabaseIfNotExist=true&useUnicode=true
 
@@ -39,12 +38,25 @@ mvn clean spring-boot:run
 
 ### Test
 
+    # command jq is required for test
+    
     cd src/scripts
+    
     ./tests
+    
+    #OR you can run individual test as followings:
+    
+    ./full-clients
+    ./full-terms
+    ./full-users
+    ./password_flow
+    ./read-clients
+    ./read-terms
+    ./read-users
     
 ### Samples
 
-    test grant_type=password to get access_token & refresh_token
+    #test grant_type=password to get access_token & refresh_token
 
     curl -sS -X POST -u 'ccf681950c2f4ce8b12fc37fd35481a6:secret' 'http://localhost:8080/oauth/v1/token' -d 'grant_type=password&username=admin@example.com&password=123&scope=read%20write%20delete'
     {
@@ -55,7 +67,7 @@ mvn clean spring-boot:run
       "scope" : "delete read write"
     }
 
-    list all version 1 API endpoints
+    #list all version 1 API endpoints
 
     curl -sS -H 'Authorization: Bearer 8e875bf7-69ed-4355-bcc5-00248c817055' -X GET 'http://localhost:8080/v1'
     {
@@ -78,7 +90,7 @@ mvn clean spring-boot:run
       }
     }
 
-    list all clients from authadmin server
+    #list all clients from authadmin server
 
     curl -sS -H 'Authorization: Bearer 8e875bf7-69ed-4355-bcc5-00248c817055' -X GET 'http://localhost:8080/v1/clients'
     {
@@ -132,9 +144,8 @@ mvn clean spring-boot:run
         "number" : 0
       }
     }
-    success
 
-    get root client from authadmin server
+    #get client from authadmin server
 
     curl -sS -H 'Authorization: Bearer 8e875bf7-69ed-4355-bcc5-00248c817055' -X GET 'http://localhost:8080/v1/clients/04aa9802e4d145f8b2f8f3b2207b9416'
     {
@@ -167,7 +178,7 @@ mvn clean spring-boot:run
       }
     }
 
-    use search/findByClientId to get each user from authadmin server
+    #use search/findByClientId to get each user from authadmin server
 
     curl -sS -H 'Authorization: Bearer 8e875bf7-69ed-4355-bcc5-00248c817055' -X GET 'http://localhost:8080/v1/clients/search/ids?id=04aa9802e4d145f8b2f8f3b2207b9416'
     {
